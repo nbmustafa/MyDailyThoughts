@@ -4,6 +4,7 @@ AWS Service VPC Endpoints are deployed centrally in network common account
 Hosted zone IDs associated to the endpoints are exported via SSM parameter
 Other network types read this SSM parameter and associate their VPCs to it (stored in separate state)
 
+Reference: https://github.com/nbmustafa/terraform-shared-vpc-endpoint
 
 
 ```
