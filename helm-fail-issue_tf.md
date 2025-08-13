@@ -25,7 +25,7 @@ Make future applies resilient
 
 Configure helm_release so failures roll back and don’t leave orphaned releases.
 
-`hcl
+```hcl
 resource "helmrelease" "myapp" {
   name       = "my-app"
   namespace  = "my-namespace"
@@ -47,7 +47,7 @@ values = [file("values.yaml")]
 
 set { name = "image.tag"; value = "..." }
 }
-`
+```
 
 - atomic: Ensures failed installs are automatically uninstalled, so the name isn’t left “taken.”
 - wait + waitforjobs + timeout: Reduce timing flakiness that causes false failures.
