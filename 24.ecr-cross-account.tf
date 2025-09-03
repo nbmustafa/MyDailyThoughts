@@ -202,7 +202,115 @@ Or configure Terraform helm provider with an explicit registry_login command so 
 
 
 
+------------------------------------------------
+
+
+Perfect — let’s approach this as a DevOps best-practice design so your Terraform helm provider is self-sufficient and doesn’t depend on external GitHub Actions steps for ECR login.
+
+
 ---
 
-Do you want me to sketch a recommended GitHub Actions pipeline structure (with minimal redundant role assumes and a clean ECR login flow inside Terraform)?
+🔹 Goal
+
+Configure the Terraform Helm provider so it executes an ECR login automatically, using the same AWS role Terraform already assumes (PCCS-Deployer).
+
+This ensures reproducibility (you can run Terraform locally, in CI, or elsewhere, and it will always log in to ECR).
+
+
+
+---
+
+🔹 Example Terraform Configuration
+
+# -------------------------------------------------------------------
+# AWS Provider (assumes PCCS-Deployer role for Terraform itself)
+# -------------------------------------------------------------------
+provider "aws" {
+  region = var.region
+
+  assume_role {
+    role_arn     = var.pccs_deployer_role_arn
+    session_name = "terraform"
+  }
+}
+
+# -------------------------------------------------------------------
+# Helm Provider with registry_login
+# -------------------------------------------------------------------
+provider "helm" {
+  kubernetes {
+    host                   = var.kube_host
+    cluster_ca_certificate = base64decode(var.kube_ca)
+    token                  = var.kube_token
+  }
+
+  # Explicit registry login: runs before helm pulls from ECR
+  registry_login {
+    # Use AWS CLI to fetch ECR password dynamically
+    command = [
+      "aws", "ecr", "get-login-password",
+      "--region", var.region
+    ]
+    # registry server for OCI charts
+    host = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com"
+    username = "AWS"
+    password_from_stdout = true
+  }
+}
+
+# -------------------------------------------------------------------
+# Example helm_release
+# -------------------------------------------------------------------
+resource "helm_release" "my_app" {
+  name       = "my-app"
+  repository = "oci://${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/helm-charts"
+  chart      = "my-chart"
+  version    = "1.2.3"
+  namespace  = "default"
+}
+
+
+---
+
+🔹 Key Points
+
+1. registry_login block in the Helm provider:
+
+Runs aws ecr get-login-password using the AWS provider’s assumed role credentials.
+
+Writes the login to Helm’s OCI registry context.
+
+No dependency on Step 2 of your GitHub Actions pipeline.
+
+
+
+2. password_from_stdout = true
+
+Tells Terraform to treat stdout from the command as the registry password.
+
+
+
+3. OCI Helm repo
+
+Specified with oci:// in the helm_release resource.
+
+
+
+
+
+---
+
+🔹 CI/CD Impact
+
+You no longer need to run aws ecr get-login-password | docker login ... in GitHub Actions.
+
+Step 2 of your pipeline can be removed — Terraform will handle login automatically.
+
+This makes local terraform apply work the same way as in GitHub Actions (developer experience improvement).
+
+
+
+---
+
+Would you like me to rewrite your GitHub Actions workflow to reflect this updated approach (removing the Step 2 ECR login and letting Terraform handle it inside the Helm provider)?
 
