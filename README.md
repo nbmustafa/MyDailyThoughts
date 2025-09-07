@@ -1,1 +1,1 @@
-# Nash-innovations
+# MyDailyThoughts
