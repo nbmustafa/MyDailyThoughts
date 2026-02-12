@@ -99,3 +99,7 @@ kubectl run test --image=busybox --rm -it --restart=Never -- nslookup docker.io
 The most reliable approach is usually **option 3** (patching CoreDNS) combined with ensuring Docker Desktop has proper DNS configured.
 
 Would you like me to help you troubleshoot further or create a more specific configuration based on your setup?
+
+2. Make Docker Desktop’s DNS match your MacKind nodes inherit DNS from the Docker daemon; if Docker’s VM can resolve your registry the same way your Mac can, kind image pulls will also work.��Check what DNS your Mac is using:scutil --dns and note “nameserver” entries.In Docker Desktop:Settings → Docker Engine → edit JSON to set explicit DNS servers, for example:{
+  "dns": ["10.0.0.10", "1.1.1.1"]
+}Use your corporate/VPN DNS that can resolve the registry.Apply & restart Docker Desktop.Recreate your kind cluster so nodes pick up the new DNS:kind delete cluster --name yourclusterkind create cluster --name yourclusterNow the kind node containers should use the same upstream DNS as your Mac (or at least one that can resolve the same zones).�
