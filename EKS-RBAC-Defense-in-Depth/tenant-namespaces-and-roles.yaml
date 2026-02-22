@@ -1,0 +1,244 @@
+###############################################################################
+# Per-Tenant Namespace Resources
+# Generates for EACH tenant × EACH namespace:
+#   - Namespace (with labels)
+#   - Role (namespace-scoped write)
+#   - RoleBinding (namespace-scoped)
+#   - ResourceQuota
+#   - LimitRange
+#   - NetworkPolicy (default deny + allow same-ns)
+###############################################################################
+
+{{- range .Values.tenants }}
+{{- $tenant := . }}
+{{- range .namespaces }}
+{{- $ns := . }}
+---
+# ── Namespace: {{ $ns }} ────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+    platform.io/managed: "true"
+  annotations:
+    platform.io/tenant-name: {{ $tenant.name }}
+    platform.io/provisioned-by: "platform-team"
+
+---
+# ── Tenant Write Role: {{ $tenant.name }} in {{ $ns }} ─────────────────
+# Namespace-scoped: tenant writers can ONLY affect their own namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tenant-writer
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+    platform.io/role-type: tenant-write
+  annotations:
+    platform.io/description: "Write access for {{ $tenant.name }} in {{ $ns }} only."
+rules:
+  # ── Workloads ──────────────────────────────────────────────────────────
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── Pods ────────────────────────────────────────────────────────────────
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log", "pods/status"]
+    verbs: ["get", "list", "watch"]
+  # ── Pod exec + port-forward for debugging (write role only) ─────────────
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/portforward"]
+    verbs: ["create"]
+  # ── Services and networking ──────────────────────────────────────────────
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── ConfigMaps + Secrets (own namespace only) ────────────────────────────
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── ServiceAccounts (own namespace only) ─────────────────────────────────
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # ── Batch ────────────────────────────────────────────────────────────────
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── Autoscaling ──────────────────────────────────────────────────────────
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling.k8s.io"]
+    resources: ["verticalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── PDB ──────────────────────────────────────────────────────────────────
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── PVCs ─────────────────────────────────────────────────────────────────
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── Events (read only for debugging) ─────────────────────────────────────
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  # ── ResourceQuota + LimitRange (read only — set by platform) ─────────────
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges"]
+    verbs: ["get", "list", "watch"]
+  # ── ExternalSecrets (if using external-secrets operator) ─────────────────
+  - apiGroups: ["external-secrets.io"]
+    resources: ["externalsecrets", "secretstores"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ── ArgoCD Applications (own namespace only) ──────────────────────────────
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+# ── RoleBinding: tenant-{{ $tenant.name }}-writers → tenant-writer in {{ $ns }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenant-writer-binding
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+    platform.io/role-type: tenant-write
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tenant-writer
+subjects:
+  - kind: Group
+    name: {{ $tenant.k8sGroup }}
+    apiGroup: rbac.authorization.k8s.io
+
+{{- if $.Values.resourceQuotas.enabled }}
+---
+# ── ResourceQuota for {{ $ns }} ────────────────────────────────────────
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: tenant-quota
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+spec:
+  hard:
+    {{- range $k, $v := $.Values.resourceQuotas.default }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+{{- end }}
+
+{{- if $.Values.limitRanges.enabled }}
+---
+# ── LimitRange for {{ $ns }} ───────────────────────────────────────────
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: tenant-limits
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: {{ $.Values.limitRanges.default.container.defaultRequest.cpu | quote }}
+        memory: {{ $.Values.limitRanges.default.container.defaultRequest.memory | quote }}
+      default:
+        cpu: {{ $.Values.limitRanges.default.container.default.cpu | quote }}
+        memory: {{ $.Values.limitRanges.default.container.default.memory | quote }}
+      max:
+        cpu: {{ $.Values.limitRanges.default.container.max.cpu | quote }}
+        memory: {{ $.Values.limitRanges.default.container.max.memory | quote }}
+{{- end }}
+
+{{- if $.Values.networkPolicy.enabled }}
+---
+# ── NetworkPolicy: default-deny-ingress for {{ $ns }} ─────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# ── NetworkPolicy: allow-same-namespace for {{ $ns }} ─────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+
+---
+# ── NetworkPolicy: allow-monitoring-scrape for {{ $ns }} ──────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-scrape
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/tenant: {{ $tenant.name }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9091
+{{- end }}
+
+{{- end }}{{/* end range namespaces */}}
+{{- end }}{{/* end range tenants */}}

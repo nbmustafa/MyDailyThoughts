@@ -1,0 +1,91 @@
+###############################################################################
+# platform-rbac — values.yaml
+###############################################################################
+
+# Platform namespace list (tenants must NEVER have write access here)
+platformNamespaces:
+  - kube-system
+  - kube-public
+  - kube-node-lease
+  - argocd
+  - karpenter
+  - monitoring
+  - cert-manager
+  - external-dns
+  - ingress-nginx
+  - external-secrets
+  - velero
+  - falco
+
+# ── Platform Admin ClusterRole ─────────────────────────────────────────────
+platformAdmin:
+  clusterRoleName: platform-admin
+  clusterRoleBindingName: platform-admin-binding
+  # K8s group that access entries map the IAM role to
+  k8sGroup: platform-admins
+
+# ── Platform ReadOnly ClusterRole ──────────────────────────────────────────
+platformReadonly:
+  clusterRoleName: platform-readonly
+  clusterRoleBindingName: platform-readonly-binding
+  k8sGroup: platform-readers
+
+# ── Tenant ReadOnly ClusterRole ────────────────────────────────────────────
+# Tenants with read roles get this ClusterRole — allows them to see
+# all workloads but NOT secrets, exec, or port-forward
+tenantReadonly:
+  clusterRoleName: tenant-readonly
+  clusterRoleBindingName: tenant-readonly-binding
+  k8sGroup: tenant-readers    # all tenant-read access entries share this group
+
+# ── Tenant Write (namespace-scoped) ───────────────────────────────────────
+# One Role + RoleBinding per namespace per tenant
+# Tenants can only write to their own namespaces
+tenants:
+  - name: team-alpha
+    k8sGroup: tenant-team-alpha-writers
+    namespaces:
+      - tenant-alpha-dev
+      - tenant-alpha-staging
+      - tenant-alpha-prod
+
+  - name: team-beta
+    k8sGroup: tenant-team-beta-writers
+    namespaces:
+      - tenant-beta-dev
+      - tenant-beta-prod
+
+# Resource quotas applied to each tenant namespace
+resourceQuotas:
+  enabled: true
+  default:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "16"
+    limits.memory: "32Gi"
+    count/pods: "50"
+    count/services: "20"
+    count/persistentvolumeclaims: "10"
+
+# LimitRange defaults per tenant namespace
+limitRanges:
+  enabled: true
+  default:
+    container:
+      defaultRequest:
+        cpu: "100m"
+        memory: "128Mi"
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      max:
+        cpu: "4"
+        memory: "8Gi"
+
+# NetworkPolicy — deny all cross-tenant traffic by default
+networkPolicy:
+  enabled: true
+  denyAllIngress: true        # override per namespace
+  allowIngressFromSameNS: true
+  allowIngressFromMonitoring: true
+  allowEgress: true

@@ -1,0 +1,166 @@
+###############################################################################
+# ArgoCD — Platform App-of-Apps
+# This Application boots all platform components.
+# Deployed once by the platform team during cluster bootstrap.
+###############################################################################
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-app-of-apps
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    platform.io/managed: "true"
+    platform.io/component: "app-of-apps"
+spec:
+  project: platform
+
+  source:
+    repoURL: https://github.com/your-org/platform-gitops
+    targetRevision: main
+    path: apps/platform
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+###############################################################################
+# ArgoCD AppProject — Platform
+# Only platform team can manage platform components.
+###############################################################################
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+spec:
+  description: "Platform managed components — platform team only"
+
+  sourceRepos:
+    - https://github.com/your-org/platform-gitops
+    - https://argoproj.github.io/argo-helm
+    - oci://public.ecr.aws/karpenter
+    - https://charts.bitnami.com/bitnami
+    - https://prometheus-community.github.io/helm-charts
+    - https://charts.jetstack.io
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"    # platform project can deploy anywhere
+
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  roles:
+    - name: platform-admin
+      description: Platform engineers full access
+      policies:
+        - p, proj:platform:platform-admin, applications, *, platform/*, allow
+      groups:
+        - platform-admins
+
+    - name: platform-readonly
+      description: Platform read-only access
+      policies:
+        - p, proj:platform:platform-readonly, applications, get, platform/*, allow
+        - p, proj:platform:platform-readonly, applications, sync, platform/*, deny
+      groups:
+        - platform-readers
+
+---
+###############################################################################
+# ArgoCD AppProject — Tenants
+# Tenants can ONLY deploy to their own namespaces.
+###############################################################################
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: tenants
+  namespace: argocd
+spec:
+  description: "Tenant workloads — tenants manage their own apps"
+
+  sourceRepos:
+    - "*"   # tenants can use any repo (restrict further per-tenant if needed)
+
+  destinations:
+    # Tenants can only target tenant-prefixed namespaces
+    - server: https://kubernetes.default.svc
+      namespace: tenant-*
+
+  # Tenants CANNOT create cluster-scoped resources
+  clusterResourceWhitelist: []
+
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: "ConfigMap"
+    - group: ""
+      kind: "Secret"
+    - group: ""
+      kind: "Service"
+    - group: ""
+      kind: "ServiceAccount"
+    - group: ""
+      kind: "PersistentVolumeClaim"
+    - group: "apps"
+      kind: "Deployment"
+    - group: "apps"
+      kind: "StatefulSet"
+    - group: "batch"
+      kind: "CronJob"
+    - group: "batch"
+      kind: "Job"
+    - group: "autoscaling"
+      kind: "HorizontalPodAutoscaler"
+    - group: "networking.k8s.io"
+      kind: "Ingress"
+    - group: "policy"
+      kind: "PodDisruptionBudget"
+    - group: "external-secrets.io"
+      kind: "ExternalSecret"
+    - group: "argoproj.io"
+      kind: "Application"
+    # Karpenter — tenants can manage their own NodePools
+    - group: "karpenter.sh"
+      kind: "NodePool"
+    - group: "karpenter.k8s.aws"
+      kind: "EC2NodeClass"
+
+  roles:
+    - name: tenant-write
+      description: Tenant engineers — deploy apps
+      policies:
+        - p, proj:tenants:tenant-write, applications, *, tenants/*, allow
+      groups:
+        - tenant-team-alpha-writers
+        - tenant-team-beta-writers
+
+    - name: tenant-readonly
+      description: Tenant read-only observers
+      policies:
+        - p, proj:tenants:tenant-readonly, applications, get, tenants/*, allow
+        - p, proj:tenants:tenant-readonly, applications, sync, tenants/*, deny
+      groups:
+        - tenant-readers

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EKS Platform RBAC Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0d14;
+    --surface: #111520;
+    --surface2: #161c2d;
+    --border: #1e2840;
+    --border2: #263354;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --text-muted: #334155;
+    --aws-orange: #ff9900;
+    --aws-orange-dim: rgba(255,153,0,0.15);
+    --platform-blue: #3b82f6;
+    --platform-blue-dim: rgba(59,130,246,0.12);
+    --tenant-green: #10b981;
+    --tenant-green-dim: rgba(16,185,129,0.12);
+    --rbac-purple: #a855f7;
+    --rbac-purple-dim: rgba(168,85,247,0.12);
+    --read-teal: #06b6d4;
+    --read-teal-dim: rgba(6,182,212,0.12);
+    --write-amber: #f59e0b;
+    --write-amber-dim: rgba(245,158,11,0.12);
+    --danger: #ef4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    padding: 40px 32px;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 90% 80%, rgba(168,85,247,0.05) 0%, transparent 50%);
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 48px;
+  }
+
+  /* ── Layout ── */
+  .canvas {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    gap: 24px;
+  }
+
+  /* ── Reusable box ── */
+  .box {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 20px 24px;
+    position: relative;
+  }
+
+  .box-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .tag {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  /* ── Top row: IAM + Access Entries ── */
+  .row-top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* ── AWS IAM Panel ── */
+  .iam-panel {
+    border-color: rgba(255,153,0,0.3);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(255,153,0,0.04) 100%);
+  }
+
+  .iam-panel .box-label { background: var(--aws-orange-dim); color: var(--aws-orange); }
+
+  .roles-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .iam-role {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: var(--surface2);
+  }
+
+  .iam-role.platform-write { border-color: rgba(59,130,246,0.4); }
+  .iam-role.platform-read  { border-color: rgba(6,182,212,0.4); }
+  .iam-role.tenant-write   { border-color: rgba(16,185,129,0.4); }
+  .iam-role.tenant-read    { border-color: rgba(245,158,11,0.4); }
+
+  .role-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .role-arn {
+    font-size: 9px;
+    color: var(--text-dim);
+    word-break: break-all;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  /* ── Access Entries Panel ── */
+  .access-panel {
+    border-color: rgba(168,85,247,0.3);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(168,85,247,0.04) 100%);
+  }
+
+  .access-panel .box-label { background: var(--rbac-purple-dim); color: var(--rbac-purple); }
+
+  .entry-row {
+    display: grid;
+    grid-template-columns: 1fr 28px 1fr;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .entry-row:last-child { margin-bottom: 0; }
+
+  .entry-iam {
+    font-size: 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--aws-orange);
+    text-align: right;
+  }
+
+  .arrow-mid {
+    text-align: center;
+    color: var(--border2);
+    font-size: 14px;
+  }
+
+  .entry-k8s {
+    font-size: 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  /* ── EKS Cluster ── */
+  .cluster-box {
+    border-color: rgba(59,130,246,0.35);
+    background: linear-gradient(180deg, var(--surface) 0%, rgba(59,130,246,0.03) 100%);
+  }
+
+  .cluster-box .box-label { background: var(--platform-blue-dim); color: var(--platform-blue); }
+
+  .cluster-inner {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+  }
+
+  /* ── Platform Namespaces ── */
+  .platform-ns-panel {
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 8px;
+    padding: 14px;
+    background: rgba(59,130,246,0.04);
+  }
+
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--platform-blue);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ns-chip {
+    display: inline-block;
+    font-size: 9px;
+    padding: 4px 9px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    margin: 3px;
+    color: var(--text-dim);
+  }
+
+  .ns-chip.highlight {
+    border-color: rgba(59,130,246,0.4);
+    color: var(--platform-blue);
+    background: var(--platform-blue-dim);
+  }
+
+  /* ── Tenant Namespaces ── */
+  .tenants-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tenant-block {
+    border: 1px solid rgba(16,185,129,0.25);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: rgba(16,185,129,0.03);
+  }
+
+  .tenant-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .tenant-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--tenant-green);
+    letter-spacing: 1px;
+  }
+
+  .tenant-ns-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .tenant-ns {
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(16,185,129,0.3);
+    background: rgba(16,185,129,0.08);
+    color: var(--tenant-green);
+  }
+
+  .argocd-note {
+    font-size: 9px;
+    color: var(--text-dim);
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.2);
+    color: var(--write-amber);
+  }
+
+  /* ── RBAC Bindings ── */
+  .rbac-section {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .rbac-card {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    background: var(--surface2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .rbac-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .rbac-card.platform-write::before { background: var(--platform-blue); }
+  .rbac-card.platform-read::before  { background: var(--read-teal); }
+  .rbac-card.tenant-write::before   { background: var(--tenant-green); }
+  .rbac-card.tenant-read::before    { background: var(--write-amber); }
+
+  .rbac-card-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .platform-write .rbac-card-title { color: var(--platform-blue); }
+  .platform-read  .rbac-card-title { color: var(--read-teal); }
+  .tenant-write   .rbac-card-title { color: var(--tenant-green); }
+  .tenant-read    .rbac-card-title { color: var(--write-amber); }
+
+  .rbac-kind {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .perm-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .perm-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .perm-item::before {
+    content: '▸';
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .platform-write .perm-item::before { color: var(--platform-blue); }
+  .platform-read  .perm-item::before { color: var(--read-teal); }
+  .tenant-write   .perm-item::before { color: var(--tenant-green); }
+  .tenant-read    .perm-item::before { color: var(--write-amber); }
+
+  /* ── ArgoCD flow ── */
+  .argocd-section {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 0;
+    align-items: center;
+  }
+
+  .argocd-box {
+    border-color: rgba(245,158,11,0.3);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(245,158,11,0.04) 100%);
+  }
+
+  .argocd-box .box-label { background: var(--write-amber-dim); color: var(--write-amber); }
+
+  .flow-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-dim);
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .flow-line {
+    width: 1px;
+    height: 40px;
+    background: linear-gradient(to bottom, var(--border2), transparent);
+  }
+
+  .flow-chevron { font-size: 14px; color: var(--border2); }
+
+  .repo-structure {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .repo-box {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: var(--surface2);
+  }
+
+  .repo-box-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .repo-file {
+    font-size: 9px;
+    color: var(--text-dim);
+    padding: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .repo-file .icon { opacity: 0.5; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Connectors ── */
+  .connector-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: -10px 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .connector-line {
+    flex: 1;
+    max-width: 200px;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .badge {
+    padding: 2px 10px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .karpenter-badge {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.3);
+    color: var(--rbac-purple);
+  }
+
+  .section-spacer { height: 8px; }
+</style>
+</head>
+<body>
+
+<h1>EKS Managed Platform — RBAC Architecture</h1>
+<div class="subtitle">Principal Security + Platform Engineering Design · AWS EKS · Access Entries · ArgoCD · Karpenter</div>
+
+<div class="canvas">
+
+  <!-- ═══════════════════════════════════════════════════
+       ROW 1 — IAM Roles + Access Entries
+  ════════════════════════════════════════════════════ -->
+  <div class="row-top">
+
+    <!-- IAM Roles -->
+    <div class="box iam-panel">
+      <span class="box-label">AWS IAM Roles</span>
+      <div class="roles-grid">
+
+        <div class="iam-role platform-write">
+          <div class="role-name" style="color:var(--platform-blue)">Platform Admin</div>
+          <div class="role-arn">arn:aws:iam::ACCOUNT:role/<br>eks-platform-admin-role</div>
+          <span class="tag" style="background:var(--platform-blue-dim);color:var(--platform-blue)">CLUSTER WRITE</span>
+        </div>
+
+        <div class="iam-role platform-read">
+          <div class="role-name" style="color:var(--read-teal)">Platform ReadOnly</div>
+          <div class="role-arn">arn:aws:iam::ACCOUNT:role/<br>eks-platform-readonly-role</div>
+          <span class="tag" style="background:var(--read-teal-dim);color:var(--read-teal)">CLUSTER READ</span>
+        </div>
+
+        <div class="iam-role tenant-write">
+          <div class="role-name" style="color:var(--tenant-green)">Tenant Write</div>
+          <div class="role-arn">arn:aws:iam::ACCOUNT:role/<br>eks-tenant-{name}-write-role</div>
+          <span class="tag" style="background:var(--tenant-green-dim);color:var(--tenant-green)">NS SCOPED WRITE</span>
+        </div>
+
+        <div class="iam-role tenant-read">
+          <div class="role-name" style="color:var(--write-amber)">Tenant ReadOnly</div>
+          <div class="role-arn">arn:aws:iam::ACCOUNT:role/<br>eks-tenant-{name}-read-role</div>
+          <span class="tag" style="background:var(--write-amber-dim);color:var(--write-amber)">CLUSTER READ</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Access Entries (replacing aws-auth) -->
+    <div class="box access-panel">
+      <span class="box-label">EKS Access Entries (API Auth Mode)</span>
+
+      <div class="entry-row">
+        <div class="entry-iam">eks-platform-admin-role</div>
+        <div class="arrow-mid">→</div>
+        <div class="entry-k8s" style="color:var(--platform-blue)">
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:2px">K8S GROUP</div>
+          platform-admins
+        </div>
+      </div>
+
+      <div class="entry-row">
+        <div class="entry-iam">eks-platform-readonly-role</div>
+        <div class="arrow-mid">→</div>
+        <div class="entry-k8s" style="color:var(--read-teal)">
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:2px">K8S GROUP</div>
+          platform-readers
+        </div>
+      </div>
+
+      <div class="entry-row">
+        <div class="entry-iam">eks-tenant-{name}-write-role</div>
+        <div class="arrow-mid">→</div>
+        <div class="entry-k8s" style="color:var(--tenant-green)">
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:2px">K8S GROUP</div>
+          tenant-{name}-writers
+        </div>
+      </div>
+
+      <div class="entry-row">
+        <div class="entry-iam">eks-tenant-{name}-read-role</div>
+        <div class="arrow-mid">→</div>
+        <div class="entry-k8s" style="color:var(--write-amber)">
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:2px">K8S GROUP</div>
+          tenant-readers
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:8px 10px;background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);border-radius:6px;font-size:9px;color:var(--rbac-purple)">
+        ⚑ &nbsp;authenticationMode: API_AND_CONFIG_MAP → API &nbsp;·&nbsp; No aws-auth ConfigMap
+      </div>
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector-row">
+    <div class="connector-line"></div>
+    <span class="badge">binds to k8s rbac</span>
+    <div class="connector-line"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ROW 2 — EKS Cluster
+  ════════════════════════════════════════════════════ -->
+  <div class="box cluster-box">
+    <span class="box-label">EKS Cluster — eks-platform-prod</span>
+    <div class="cluster-inner">
+
+      <!-- Platform Namespaces (left column) -->
+      <div class="platform-ns-panel">
+        <div class="panel-title">
+          <span>🔒</span> Platform Namespaces
+          <span class="tag" style="background:var(--platform-blue-dim);color:var(--platform-blue);margin-left:auto">PLATFORM MANAGED</span>
+        </div>
+        <div>
+          <span class="ns-chip highlight">argocd</span>
+          <span class="ns-chip highlight">karpenter</span>
+          <span class="ns-chip highlight">monitoring</span>
+          <span class="ns-chip highlight">cert-manager</span>
+          <span class="ns-chip highlight">external-dns</span>
+          <span class="ns-chip highlight">ingress-nginx</span>
+          <span class="ns-chip highlight">external-secrets</span>
+          <span class="ns-chip highlight">kube-system</span>
+          <span class="ns-chip">velero</span>
+          <span class="ns-chip">falco</span>
+        </div>
+        <div style="margin-top:12px;font-size:9px;color:var(--text-dim);line-height:1.6">
+          ▸ Platform team has full write access<br>
+          ▸ Tenants have NO access to these NSes<br>
+          ▸ Managed via platform ArgoCD app-of-apps
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px">Node Groups</div>
+          <span class="ns-chip highlight">platform-system-ng</span>
+          <span class="ns-chip">karpenter-managed</span>
+        </div>
+      </div>
+
+      <!-- Tenant Namespaces (right column) -->
+      <div class="tenants-area">
+        <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--tenant-green);margin-bottom:2px;display:flex;align-items:center;gap:8px">
+          <span>👥</span> Tenant Namespaces
+          <span class="tag" style="background:var(--tenant-green-dim);color:var(--tenant-green);margin-left:auto">TENANT MANAGED VIA ARGOCD</span>
+        </div>
+
+        <div class="tenant-block">
+          <div class="tenant-header">
+            <span class="tenant-name">TENANT-A (team-alpha)</span>
+            <span class="karpenter-badge">Karpenter NodePool</span>
+          </div>
+          <div class="tenant-ns-row">
+            <span class="tenant-ns">tenant-a-dev</span>
+            <span class="tenant-ns">tenant-a-staging</span>
+            <span class="tenant-ns">tenant-a-prod</span>
+          </div>
+          <div class="argocd-note">
+            ▸ Write: eks-tenant-a-write-role → tenant-a-* namespaces only &nbsp;|&nbsp; Karpenter: EC2NodeClass + NodePool via ArgoCD
+          </div>
+        </div>
+
+        <div class="tenant-block">
+          <div class="tenant-header">
+            <span class="tenant-name">TENANT-B (team-beta)</span>
+            <span class="karpenter-badge">Karpenter NodePool</span>
+          </div>
+          <div class="tenant-ns-row">
+            <span class="tenant-ns">tenant-b-dev</span>
+            <span class="tenant-ns">tenant-b-prod</span>
+          </div>
+          <div class="argocd-note">
+            ▸ Write: eks-tenant-b-write-role → tenant-b-* namespaces only &nbsp;|&nbsp; Karpenter: EC2NodeClass + NodePool via ArgoCD
+          </div>
+        </div>
+
+        <div class="tenant-block" style="border-color:rgba(100,116,139,0.2)">
+          <div class="tenant-header">
+            <span class="tenant-name" style="color:var(--text-dim)">TENANT-N (future)</span>
+          </div>
+          <div style="font-size:9px;color:var(--text-muted)">
+            Onboarded via platform ArgoCD — tenant creates PR to platform repo → platform team merges → NS + RBAC provisioned automatically
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector-row">
+    <div class="connector-line"></div>
+    <span class="badge">helm-managed rbac</span>
+    <div class="connector-line"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ROW 3 — RBAC Role Cards
+  ════════════════════════════════════════════════════ -->
+  <div class="rbac-section">
+
+    <div class="rbac-card platform-write">
+      <div class="rbac-card-title">Platform Admin</div>
+      <div class="rbac-kind">ClusterRole · Helm: platform-rbac</div>
+      <ul class="perm-list">
+        <li class="perm-item">All API groups (*) full CRUD</li>
+        <li class="perm-item">All namespaces incl. platform NSes</li>
+        <li class="perm-item">Node, PV, ClusterRole management</li>
+        <li class="perm-item">CRD create/update/patch/delete</li>
+        <li class="perm-item">Karpenter NodeClass & NodePool admin</li>
+        <li class="perm-item">ArgoCD Application admin</li>
+        <li class="perm-item">Secrets, ConfigMaps full access</li>
+      </ul>
+      <div style="margin-top:10px;font-size:9px;padding:5px 8px;border-radius:4px;background:var(--platform-blue-dim);color:var(--platform-blue)">
+        Group: platform-admins
+      </div>
+    </div>
+
+    <div class="rbac-card platform-read">
+      <div class="rbac-card-title">Platform ReadOnly</div>
+      <div class="rbac-kind">ClusterRole · Helm: platform-rbac</div>
+      <ul class="perm-list">
+        <li class="perm-item">get, list, watch on all resources</li>
+        <li class="perm-item">All namespaces incl. platform NSes</li>
+        <li class="perm-item">Nodes, PVs, PVCs read</li>
+        <li class="perm-item">Events, Logs read access</li>
+        <li class="perm-item">Karpenter resources read</li>
+        <li class="perm-item">ArgoCD Applications read</li>
+        <li class="perm-item">Secrets LIST only (no get/watch)</li>
+      </ul>
+      <div style="margin-top:10px;font-size:9px;padding:5px 8px;border-radius:4px;background:var(--read-teal-dim);color:var(--read-teal)">
+        Group: platform-readers
+      </div>
+    </div>
+
+    <div class="rbac-card tenant-write">
+      <div class="rbac-card-title">Tenant Write</div>
+      <div class="rbac-kind">Role (NS-scoped) · Helm: tenant-rbac</div>
+      <ul class="perm-list">
+        <li class="perm-item">Full CRUD on own namespace resources</li>
+        <li class="perm-item">Deployments, Services, Ingress</li>
+        <li class="perm-item">ConfigMaps, Secrets (own NS)</li>
+        <li class="perm-item">HPA, PodDisruptionBudget</li>
+        <li class="perm-item">ServiceAccounts (own NS only)</li>
+        <li class="perm-item">Pod exec, logs, port-forward</li>
+        <li class="perm-item">❌ No platform NS access</li>
+      </ul>
+      <div style="margin-top:10px;font-size:9px;padding:5px 8px;border-radius:4px;background:var(--tenant-green-dim);color:var(--tenant-green)">
+        Group: tenant-{name}-writers
+      </div>
+    </div>
+
+    <div class="rbac-card tenant-read">
+      <div class="rbac-card-title">Tenant ReadOnly</div>
+      <div class="rbac-kind">ClusterRole · Helm: platform-rbac</div>
+      <ul class="perm-list">
+        <li class="perm-item">get, list, watch cluster-wide</li>
+        <li class="perm-item">Pods, Deployments, Services</li>
+        <li class="perm-item">Nodes read (for capacity view)</li>
+        <li class="perm-item">Events read cluster-wide</li>
+        <li class="perm-item">❌ No Secrets get/watch</li>
+        <li class="perm-item">❌ No platform NS deep access</li>
+        <li class="perm-item">❌ No exec or port-forward</li>
+      </ul>
+      <div style="margin-top:10px;font-size:9px;padding:5px 8px;border-radius:4px;background:var(--write-amber-dim);color:var(--write-amber)">
+        Group: tenant-readers
+      </div>
+    </div>
+
+  </div>
+
+  <!-- connector -->
+  <div class="connector-row">
+    <div class="connector-line"></div>
+    <span class="badge">gitops delivery</span>
+    <div class="connector-line"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ROW 4 — ArgoCD GitOps
+  ════════════════════════════════════════════════════ -->
+  <div class="box argocd-box">
+    <span class="box-label">ArgoCD GitOps — App-of-Apps Pattern</span>
+    <div class="repo-structure">
+
+      <div class="repo-box">
+        <div class="repo-box-title" style="color:var(--platform-blue)">📁 platform-gitops (platform team only)</div>
+        <div class="repo-file"><span class="icon">📂</span>apps/platform/</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>argocd-app-of-apps.yaml</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>karpenter-app.yaml</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>platform-rbac-app.yaml</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>monitoring-app.yaml</div>
+        <div class="repo-file"><span class="icon">📂</span>apps/tenants/</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>tenant-a-app.yaml</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>tenant-b-app.yaml</div>
+      </div>
+
+      <div class="repo-box">
+        <div class="repo-box-title" style="color:var(--tenant-green)">📁 tenant-gitops (per-tenant write access)</div>
+        <div class="repo-file"><span class="icon">📂</span>karpenter/</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>ec2nodeclass.yaml</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>nodepool.yaml</div>
+        <div class="repo-file"><span class="icon">📂</span>namespaces/</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>dev-namespace.yaml</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>prod-namespace.yaml</div>
+        <div class="repo-file"><span class="icon">📂</span>apps/</div>
+        <div class="repo-file" style="padding-left:16px"><span class="icon">📄</span>workload-app.yaml</div>
+      </div>
+
+      <div class="repo-box">
+        <div class="repo-box-title" style="color:var(--rbac-purple)">🔄 Tenant Onboarding Flow</div>
+        <div style="font-size:9px;color:var(--text-dim);line-height:1.8">
+          1. Tenant opens PR to <span style="color:var(--platform-blue)">platform-gitops</span><br>
+          2. Platform reviews and merges<br>
+          3. ArgoCD creates tenant namespace<br>
+          4. Terraform provisions IAM role + Access Entry<br>
+          5. Helm chart installs Role + RoleBinding<br>
+          6. Tenant gets write to <span style="color:var(--tenant-green)">tenant-gitops</span> repo<br>
+          7. Tenant self-serves Karpenter + workloads
+        </div>
+      </div>
+
+      <div class="repo-box">
+        <div class="repo-box-title" style="color:var(--write-amber)">🛡️ Security Controls</div>
+        <div style="font-size:9px;color:var(--text-dim);line-height:1.8">
+          ▸ ArgoCD RBAC limits tenant projects<br>
+          ▸ Tenants cannot deploy to platform NS<br>
+          ▸ NetworkPolicy isolates tenant traffic<br>
+          ▸ Resource quotas enforced per NS<br>
+          ▸ OPA/Gatekeeper policy enforcement<br>
+          ▸ Audit logs via CloudTrail + k8s audit<br>
+          ▸ Secrets via External Secrets + ASM
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--platform-blue)"></div>Platform Admin Write</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--read-teal)"></div>Platform Read</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--tenant-green)"></div>Tenant NS Write</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--write-amber)"></div>Tenant Read</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--rbac-purple)"></div>Access Entry (no aws-auth)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Denied Access</div>
+  </div>
+
+</div>
+
+</body>
+</html>

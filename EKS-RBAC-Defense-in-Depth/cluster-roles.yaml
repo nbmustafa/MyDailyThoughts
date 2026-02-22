@@ -1,0 +1,194 @@
+###############################################################################
+# ClusterRoles — Platform Admin, Platform ReadOnly, Tenant ReadOnly
+###############################################################################
+
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# PLATFORM ADMIN ClusterRole
+# Full write access to ALL resources across the entire cluster.
+# Bound to K8s group: platform-admins (mapped from IAM via Access Entry)
+# ═══════════════════════════════════════════════════════════════════════════
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.platformAdmin.clusterRoleName }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/role-type: platform-admin
+  annotations:
+    platform.io/description: "Full write access to all cluster resources. Platform engineers only."
+    platform.io/sensitivity: "critical"
+rules:
+  # ── All resources, all API groups ──────────────────────────────────────
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  # ── Non-resource URLs (health, metrics, proxy) ─────────────────────────
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# PLATFORM READONLY ClusterRole
+# Read-only access to ALL resources across the entire cluster.
+# Bound to K8s group: platform-readers
+# Notable restriction: Secrets list only (no get/watch — prevents exfiltration)
+# ═══════════════════════════════════════════════════════════════════════════
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.platformReadonly.clusterRoleName }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/role-type: platform-readonly
+  annotations:
+    platform.io/description: "Read-only access to all cluster resources. Platform on-call and audit."
+rules:
+  # ── Core resources (pods, nodes, namespaces, services, etc.) ──────────
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - endpoints
+      - events
+      - limitranges
+      - namespaces
+      - nodes
+      - persistentvolumeclaims
+      - persistentvolumes
+      - pods
+      - pods/log
+      - replicationcontrollers
+      - resourcequotas
+      - serviceaccounts
+      - services
+    verbs: ["get", "list", "watch"]
+  # ── Secrets: list ONLY — can see that secrets exist, not their values ──
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["list"]
+  # ── Apps resources ──────────────────────────────────────────────────────
+  - apiGroups: ["apps"]
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  # ── Batch ───────────────────────────────────────────────────────────────
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch"]
+  # ── Autoscaling ─────────────────────────────────────────────────────────
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  # ── Networking ──────────────────────────────────────────────────────────
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "ingressclasses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  # ── Policy ──────────────────────────────────────────────────────────────
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  # ── RBAC — read only (to audit permissions) ─────────────────────────────
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources:
+      - clusterroles
+      - clusterrolebindings
+      - roles
+      - rolebindings
+    verbs: ["get", "list", "watch"]
+  # ── Storage ─────────────────────────────────────────────────────────────
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "volumeattachments"]
+    verbs: ["get", "list", "watch"]
+  # ── Karpenter ───────────────────────────────────────────────────────────
+  - apiGroups: ["karpenter.sh"]
+    resources: ["nodepools", "nodeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["karpenter.k8s.aws"]
+    resources: ["ec2nodeclasses"]
+    verbs: ["get", "list", "watch"]
+  # ── ArgoCD ──────────────────────────────────────────────────────────────
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets", "appprojects"]
+    verbs: ["get", "list", "watch"]
+  # ── Metrics ─────────────────────────────────────────────────────────────
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+  # ── CRDs ────────────────────────────────────────────────────────────────
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  # ── Non-resource URLs ───────────────────────────────────────────────────
+  - nonResourceURLs: ["/healthz", "/readyz", "/livez", "/metrics", "/version"]
+    verbs: ["get"]
+
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# TENANT READONLY ClusterRole
+# Read access cluster-wide but with stricter limits than platform-readonly.
+# Tenants can observe workloads for debugging but cannot see secrets or
+# access sensitive control-plane resources.
+# Bound to K8s group: tenant-readers (shared across all tenant read roles)
+# ═══════════════════════════════════════════════════════════════════════════
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.tenantReadonly.clusterRoleName }}
+  labels:
+    app.kubernetes.io/managed-by: platform-rbac-helm
+    platform.io/role-type: tenant-readonly
+  annotations:
+    platform.io/description: "Limited read access. Tenant members for observability. No secrets, no exec."
+rules:
+  # ── Pods (read + logs only — NO exec, NO port-forward) ─────────────────
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  # ── Workload resources ──────────────────────────────────────────────────
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  # ── Services and networking ──────────────────────────────────────────────
+  - apiGroups: [""]
+    resources: ["services", "endpoints", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  # ── Events (for debugging) ───────────────────────────────────────────────
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  # ── Namespaces (can see that namespaces exist) ───────────────────────────
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  # ── Nodes (capacity awareness only) ─────────────────────────────────────
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # ── Batch ────────────────────────────────────────────────────────────────
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch"]
+  # ── HPA ──────────────────────────────────────────────────────────────────
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  # ── PDB ──────────────────────────────────────────────────────────────────
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  # ── Karpenter NodePools (tenant-scoped view) ─────────────────────────────
+  - apiGroups: ["karpenter.sh"]
+    resources: ["nodepools", "nodeclaims"]
+    verbs: ["get", "list", "watch"]
+  # ── Metrics (for kubectl top) ────────────────────────────────────────────
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+  # ── Explicitly DENY: secrets, exec, port-forward, attach ─────────────────
+  # (Not listing them = they are denied by default in K8s RBAC)

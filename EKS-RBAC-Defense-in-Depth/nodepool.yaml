@@ -1,0 +1,126 @@
+###############################################################################
+# Karpenter NodePool + EC2NodeClass for Tenant team-alpha
+# This file lives in the TENANT gitops repo.
+# Platform pre-configures EC2NodeClass; tenant customizes NodePool constraints.
+###############################################################################
+
+---
+# EC2NodeClass — defines which AMI and security groups Karpenter uses
+# NOTE: Platform team must allow the tenant to use these subnets/SGs
+# The karpenter namespace resources are cluster-scoped, allowed by ArgoCD project
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: team-alpha-nodeclass
+  labels:
+    platform.io/tenant: team-alpha
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # AL2 AMI — EKS-optimized
+  amiFamily: AL2
+
+  # Subnets: select private subnets tagged for this tenant
+  subnetSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/eks-platform: owned
+        platform.io/tenant-nodegroup: team-alpha
+
+  # Security groups: use the shared node SG (provisioned by platform)
+  securityGroupSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/eks-platform: owned
+
+  # Instance profile created by platform Terraform for Karpenter nodes
+  instanceProfile: eks-eks-platform-karpenter-node
+
+  # Block device — encrypted, gp3
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 50Gi
+        volumeType: gp3
+        encrypted: true
+        deleteOnTermination: true
+
+  # Tags applied to EC2 instances
+  tags:
+    Name: karpenter-team-alpha
+    platform.io/tenant: team-alpha
+    platform.io/managed: "true"
+
+---
+# NodePool — tenant-specific scheduling constraints
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: team-alpha
+  labels:
+    platform.io/tenant: team-alpha
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # Template applied to nodes Karpenter provisions
+  template:
+    metadata:
+      labels:
+        platform.io/tenant: team-alpha
+        karpenter.sh/nodepool: team-alpha
+      annotations:
+        platform.io/tenant: team-alpha
+
+    spec:
+      # Node must tolerate the tenant taint to accept tenant workloads
+      # (optional — remove if sharing nodes across tenants is acceptable)
+      taints:
+        - key: platform.io/tenant
+          value: team-alpha
+          effect: NoSchedule
+
+      nodeClassRef:
+        apiVersion: karpenter.k8s.aws/v1
+        kind: EC2NodeClass
+        name: team-alpha-nodeclass
+
+      requirements:
+        # Allow a mix of on-demand and spot
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+
+        # Instance families — tenant selects appropriate sizes
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            - m6i.large
+            - m6i.xlarge
+            - m6i.2xlarge
+            - m6a.large
+            - m6a.xlarge
+            - m6a.2xlarge
+            - c6i.xlarge
+            - c6i.2xlarge
+
+        # Only Linux nodes
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+
+        # x86 only (change to arm64 for Graviton)
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+
+  # Disruption controls
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 30s
+    # Budgets: limit disruptions during business hours
+    budgets:
+      - schedule: "0 9 * * MON-FRI"      # 9 AM weekdays
+        duration: 8h
+        nodes: "20%"
+      - nodes: "10%"                       # default: max 10% disrupted at once
+
+  # Hard limits to prevent runaway scaling
+  limits:
+    cpu: "100"
+    memory: "400Gi"
