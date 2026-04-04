@@ -3,6 +3,10 @@
 A comprehensive, fast Kubernetes cluster diagnostic tool written in Go.  
 Designed to be called by Claude CLI via the `k8s-diagnostics` skill.
 
+
+<img width="1166" height="1268" alt="image" src="https://github.com/user-attachments/assets/3a4cdb18-04e5-402f-b1f6-ad3fc320020a" />
+
+
 ---
 
 ## Features
