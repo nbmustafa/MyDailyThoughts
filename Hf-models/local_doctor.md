@@ -1,4 +1,4 @@
-Building domain-specialized SLMs like a "Mini-Lawyer" or "Local Doctor" for private, local RAG systems is a highly strategic project. Here is your complete, step-by-step technical blueprint to do just that.
+7Building domain-specialized SLMs like a "Mini-Lawyer" or "Local Doctor" for private, local RAG systems is a highly strategic project. Here is your complete, step-by-step technical blueprint to do just that.
 
 ---
 
