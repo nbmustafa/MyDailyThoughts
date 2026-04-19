@@ -1,0 +1,1 @@
+Use skill creator to write a claude skill for my day to day eks cluster debugging supporting massive environemnt with vas components and feafures enabled
