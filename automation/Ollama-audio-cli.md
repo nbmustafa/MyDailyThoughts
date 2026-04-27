@@ -1,4 +1,12 @@
-I'll architect this system for you. This is a sophisticated multimedia pipeline that doesn't actually use Ollama for video generation (Ollama is a local LLM runner, not a video editor), but rather uses it as an orchestrator/intelligence layer while leveraging proper multimedia tools for rendering.
+Act as a principal ai engneer to build a system with below specification:
+integrate ollama with my repository that contains all quraan and its english translation as jsson. And audio for quraan are stored on google drive, and also images are stored on google drive. 
+
+I want ollama to create audio clips from thoss audio and images and use the json format od queran which is nicely done each chapter and each verse with their number and translation. So if i order ollama to creat an ausio clip for chapter 2 verse 20-23 image xyz. 
+
+Ollama then gives me an ideal audio clip with images moving and audio is getting text subtitled from json with both arabic and english, the output to srore on local laptop
+
+
+This is a sophisticated multimedia pipeline that doesn't actually use Ollama for video generation (Ollama is a local LLM runner, not a video editor), but rather uses it as an orchestrator/intelligence layer while leveraging proper multimedia tools for rendering.
 
 System Architecture
 
