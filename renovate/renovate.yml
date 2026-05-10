@@ -1,0 +1,129 @@
+# .github/workflows/renovate.yml
+#
+# Self-hosted Renovate Bot
+# ────────────────────────
+# Runs on a cron schedule (every 6 h) and can also be triggered manually
+# for ad-hoc runs or debug sessions.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   RENOVATE_TOKEN  – A GitHub PAT with the scopes listed below.
+#
+# Required PAT scopes:
+#   repo          (read/write code, PRs, issues)
+#   read:org      (if targeting an organisation)
+#   workflow      (to update .github/workflows/* files via PRs)
+#
+# Docs: https://docs.renovatebot.com/getting-started/running/#github-actions
+
+name: 🤖 Renovate Bot
+
+on:
+  # ── Scheduled runs ────────────────────────────────────────────────────────
+  schedule:
+    - cron: "0 */6 * * *"   # Every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC
+
+  # ── Manual trigger ────────────────────────────────────────────────────────
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run mode (no PRs opened, config validated only)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      log_level:
+        description: "Renovate log verbosity"
+        required: false
+        default: "debug"
+        type: choice
+        options:
+          - "info"
+          - "debug"
+
+  # ── Push-triggered run on config changes ──────────────────────────────────
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/renovate.yml"
+      - "renovate/config.js"
+      - "renovate/renovate.json"
+
+# Prevent concurrent Renovate runs – a new trigger cancels any in-progress run.
+concurrency:
+  group: renovate
+  cancel-in-progress: true
+
+jobs:
+  renovate:
+    name: Run Renovate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    # ── Permissions (OIDC token + read metadata) ───────────────────────────
+    permissions:
+      contents: read      # Checkout this config repo
+      id-token: write     # Required if you later add OIDC-based auth
+
+    steps:
+      # ── 1. Checkout the repository that holds config.js ──────────────────
+      - name: Checkout config repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so Renovate can inspect commit dates
+          fetch-depth: 0
+
+      # ── 2. Restore Renovate cache (speeds up repeat runs significantly) ───
+      - name: Restore Renovate cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/renovate/cache
+          # Cache key rotates daily; previous day's cache is still restored
+          # as a fallback via restore-keys.
+          key: renovate-cache-${{ runner.os }}-${{ hashFiles('renovate/config.js', 'renovate/renovate.json') }}-${{ github.run_id }}
+          restore-keys: |
+            renovate-cache-${{ runner.os }}-${{ hashFiles('renovate/config.js', 'renovate/renovate.json') }}-
+            renovate-cache-${{ runner.os }}-
+
+      # ── 3. Create working directories ─────────────────────────────────────
+      - name: Prepare Renovate working directories
+        run: |
+          mkdir -p /tmp/renovate/cache
+          mkdir -p /tmp/renovate/base
+
+      # ── 4. Run Renovate ───────────────────────────────────────────────────
+      - name: Run Renovate Bot
+        uses: renovatebot/github-action@v43.0.0
+        env:
+          # ── SECRETS ───────────────────────────────────────────────────────
+          # RENOVATE_TOKEN is a GitHub PAT stored in repository/org secrets.
+          # It is NEVER printed in logs; GitHub Actions automatically masks
+          # any value registered as a secret.
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+
+          # ── Runtime overrides (workflow_dispatch inputs) ──────────────────
+          RENOVATE_DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          LOG_LEVEL: ${{ github.event.inputs.log_level || 'info' }}
+
+          # ── Paths ──────────────────────────────────────────────────────────
+          RENOVATE_BASE_DIR:  /tmp/renovate/base
+          RENOVATE_CACHE_DIR: /tmp/renovate/cache
+
+        with:
+          # Point Renovate at the self-hosted config file in this repo
+          configurationFile: renovate/config.js
+
+          # Pin a specific Renovate version for reproducible runs.
+          # Bump this intentionally after reviewing the Renovate changelog.
+          renovate-version: "37.440.0"
+
+      # ── 5. Upload logs on failure (aids debugging) ────────────────────────
+      - name: Upload Renovate logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renovate-logs-${{ github.run_id }}
+          path: /tmp/renovate/
+          retention-days: 7

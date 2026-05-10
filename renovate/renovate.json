@@ -1,0 +1,157 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+
+  "description": "Renovate config for Helm chart version tracking. Place this file at the root of each target repository (fluent-bit, grafana, prometheus, argocd).",
+
+  // ─── Extends ──────────────────────────────────────────────────────────────
+  "extends": [
+    "config:base",          // Sensible Renovate defaults
+    ":dependencyDashboard", // Creates a tracking issue in the repo
+    ":semanticCommits",     // feat/fix/chore prefixes on commits
+    ":separatePatchReleases" // Patch bumps get their own PR
+  ],
+
+  // ─── Managers ─────────────────────────────────────────────────────────────
+  /**
+   * Only activate the helmv3 manager.
+   * Scoping to a single manager prevents Renovate from also scanning for
+   * Docker tags, npm deps, or GitHub Actions in these chart-only repos.
+   */
+  "enabledManagers": ["helmv3"],
+
+  // ─── Helm-specific settings ───────────────────────────────────────────────
+  "helmv3": {
+    /**
+     * Glob patterns for Helm dependency manifests.
+     * Chart.yaml is the canonical place; also scan inside a 'charts/'
+     * sub-directory in case any repo wraps an umbrella chart.
+     */
+    "fileMatch": [
+      "(^|/)Chart\\.yaml$"
+    ]
+  },
+
+  // ─── Custom registries & datasources ─────────────────────────────────────
+  /**
+   * Renovate auto-detects 'dependencies[].repository' in Chart.yaml.
+   * The registryAliases map SHORT names → canonical OCI/HTTP registry URLs
+   * so that any alias used inside Chart.yaml is resolved correctly.
+   *
+   * Additionally, packageRules below pin each chart to its official feed.
+   */
+  "registryAliases": {
+    "fluent"      : "https://fluent.github.io/helm-charts",
+    "grafana"     : "https://grafana.github.io/helm-charts",
+    "prometheus"  : "https://prometheus-community.github.io/helm-charts",
+    "argo"        : "https://argoproj.github.io/argo-helm"
+  },
+
+  // ─── PR metadata ─────────────────────────────────────────────────────────
+  "labels": ["dependencies"],
+  "assignees": ["nbmustafa"],
+  "reviewers":  [],
+
+  // ─── PR description template ──────────────────────────────────────────────
+  "prBodyTemplate": "{{{header}}}{{{table}}}{{{warnings}}}{{{notes}}}{{{changelogs}}}{{{configDescription}}}{{{footer}}}",
+
+  // ─── Commit & branch naming ───────────────────────────────────────────────
+  "branchPrefix"       : "renovate/",
+  "commitMessagePrefix": "chore(deps):",
+  "commitMessageAction": "update",
+  "commitMessageTopic" : "helm chart {{depName}}",
+  "commitMessageExtra" : "to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}v{{{newMajor}}}{{else}}{{{newVersion}}}{{/if}}{{/if}}",
+
+  // ─── Scheduling ──────────────────────────────────────────────────────────
+  /**
+   * Allow Renovate to raise PRs any time (the GitHub Actions workflow
+   * already controls the run schedule to every 6 hours).
+   * Remove this to use Renovate's own built-in schedule instead.
+   */
+  "schedule": ["at any time"],
+
+  // ─── Auto-merge rules ─────────────────────────────────────────────────────
+  /**
+   * Auto-merge PATCH updates only when all status checks pass.
+   * MINOR and MAJOR always require a human review.
+   */
+  "packageRules": [
+
+    // ── Fluent-bit ────────────────────────────────────────────────────────
+    {
+      "description": "Track Fluent-bit Helm chart from the official registry",
+      "matchPackageNames": ["fluent-bit"],
+      "matchManagers": ["helmv3"],
+      "registryUrls": ["https://fluent.github.io/helm-charts"],
+      "labels": ["dependencies", "fluent-bit"],
+      "versioning": "semver"
+    },
+
+    // ── Grafana ───────────────────────────────────────────────────────────
+    {
+      "description": "Track Grafana Helm chart from the official Grafana registry",
+      "matchPackageNames": ["grafana"],
+      "matchManagers": ["helmv3"],
+      "registryUrls": ["https://grafana.github.io/helm-charts"],
+      "labels": ["dependencies", "grafana"],
+      "versioning": "semver"
+    },
+
+    // ── Prometheus (kube-prometheus-stack) ────────────────────────────────
+    {
+      "description": "Track Prometheus / kube-prometheus-stack from the Prometheus Community registry",
+      "matchPackageNames": ["prometheus", "kube-prometheus-stack", "prometheus-stack"],
+      "matchManagers": ["helmv3"],
+      "registryUrls": ["https://prometheus-community.github.io/helm-charts"],
+      "labels": ["dependencies", "prometheus"],
+      "versioning": "semver"
+    },
+
+    // ── ArgoCD ────────────────────────────────────────────────────────────
+    {
+      "description": "Track ArgoCD Helm chart from the official Argo registry",
+      "matchPackageNames": ["argo-cd", "argocd"],
+      "matchManagers": ["helmv3"],
+      "registryUrls": ["https://argoproj.github.io/argo-helm"],
+      "labels": ["dependencies", "argocd"],
+      "versioning": "semver"
+    },
+
+    // ── Auto-merge patch releases ─────────────────────────────────────────
+    {
+      "description": "Auto-merge patch-level Helm chart updates when CI passes",
+      "matchManagers": ["helmv3"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+
+    // ── Require review for minor/major ────────────────────────────────────
+    {
+      "description": "Minor and major chart updates always require manual review",
+      "matchManagers": ["helmv3"],
+      "matchUpdateTypes": ["minor", "major"],
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    },
+
+    // ── Stability window for major releases ───────────────────────────────
+    {
+      "description": "Add a 7-day stability window before raising major-version PRs",
+      "matchManagers": ["helmv3"],
+      "matchUpdateTypes": ["major"],
+      "stabilityDays": 7
+    }
+  ],
+
+  // ─── Vulnerability alerts ─────────────────────────────────────────────────
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security", "dependencies"]
+  },
+
+  // ─── Dependency Dashboard ─────────────────────────────────────────────────
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "🤖 Renovate Dependency Dashboard",
+  "dependencyDashboardAutoclose": true
+}

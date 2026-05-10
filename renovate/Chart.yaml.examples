@@ -1,0 +1,155 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Chart.yaml — Annotated Examples for Renovate Helm Tracking
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# HOW RENOVATE READS THIS FILE
+# ─────────────────────────────
+# Renovate's helmv3 manager scans Chart.yaml for:
+#   1. `dependencies[].version`  → raises a PR when a newer chart version is
+#                                   published on the upstream registry.
+#   2. `appVersion`              → (optional) can be kept in sync via a custom
+#                                   regex manager (see notes at the bottom).
+#
+# The `# renovate: datasource=...` INLINE COMMENT is the KEY mechanism.
+# It overrides auto-detection so Renovate knows EXACTLY which registry and
+# package name to query, even when the local chart name differs from the
+# upstream package name.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ── Example: nbmustafa/fluent-bit / Chart.yaml ───────────────────────────────
+
+apiVersion: v2
+name: fluent-bit
+description: A Helm chart wrapping the upstream Fluent Bit release
+type: application
+
+# `version` = version of THIS wrapper chart. Bump manually or via CI.
+version: 0.1.0
+
+# `appVersion` = version of the Fluent Bit APPLICATION being deployed.
+# When you update the dependency below, also update this to match the
+# upstream chart's appVersion (see values-sync section in README).
+appVersion: "3.3.2"
+
+dependencies:
+  # The inline comment tells Renovate:
+  #   datasource  → use Helm registry lookups
+  #   registryUrl → query this specific feed
+  #   depName     → the exact package name on that feed
+  # Without this comment, Renovate still works but may mis-detect the registry.
+  # renovate: datasource=helm registryUrl=https://fluent.github.io/helm-charts depName=fluent-bit
+  - name: fluent-bit
+    version: "3.3.2"        # ← Renovate will open a PR to bump this value
+    repository: "https://fluent.github.io/helm-charts"
+
+
+---
+# ── Example: nbmustafa/grafana / Chart.yaml ──────────────────────────────────
+
+apiVersion: v2
+name: grafana
+description: A Helm chart wrapping the upstream Grafana release
+type: application
+version: 0.1.0
+appVersion: "11.4.0"
+
+dependencies:
+  # renovate: datasource=helm registryUrl=https://grafana.github.io/helm-charts depName=grafana
+  - name: grafana
+    version: "8.8.4"
+    repository: "https://grafana.github.io/helm-charts"
+
+
+---
+# ── Example: nbmustafa/prometheus / Chart.yaml ───────────────────────────────
+#
+# NOTE: The de-facto standard Prometheus Helm chart is `kube-prometheus-stack`.
+# If your repo wraps that chart, set depName accordingly (shown below).
+# If you use the standalone `prometheus` chart, replace depName=prometheus.
+
+apiVersion: v2
+name: prometheus
+description: A Helm chart wrapping kube-prometheus-stack
+type: application
+version: 0.1.0
+appVersion: "v0.79.2"   # Prometheus Operator version
+
+dependencies:
+  # renovate: datasource=helm registryUrl=https://prometheus-community.github.io/helm-charts depName=kube-prometheus-stack
+  - name: kube-prometheus-stack
+    version: "67.9.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+
+
+---
+# ── Example: nbmustafa/argocd / Chart.yaml ───────────────────────────────────
+
+apiVersion: v2
+name: argocd
+description: A Helm chart wrapping the upstream Argo CD release
+type: application
+version: 0.1.0
+appVersion: "v2.13.3"
+
+dependencies:
+  # renovate: datasource=helm registryUrl=https://argoproj.github.io/argo-helm depName=argo-cd
+  - name: argo-cd
+    version: "7.7.16"
+    repository: "https://argoproj.github.io/argo-helm"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SYNCHRONISING appVersion in values.yaml
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Renovate's helmv3 manager ONLY updates `dependencies[].version`.
+# `appVersion` in Chart.yaml and image tags in values.yaml are NOT touched
+# automatically unless you add a custom regex manager.
+#
+# OPTION A — Manual sync (simplest)
+# ───────────────────────────────────
+# The PR raised by Renovate changes `dependencies[].version`.
+# A reviewer is responsible for ALSO updating:
+#   Chart.yaml  → appVersion (to match the new chart's bundled app version)
+#   values.yaml → image.tag  (if you override the image tag explicitly)
+#
+# OPTION B — Automated sync via regexManagers (recommended)
+# ──────────────────────────────────────────────────────────
+# Add the block below to renovate.json to let Renovate ALSO patch
+# `appVersion` and `image.tag` values.yaml in the same PR.
+#
+# "regexManagers": [
+#   {
+#     "description": "Keep Chart.yaml appVersion in sync with the dependency version",
+#     "fileMatch": ["(^|/)Chart\\.yaml$"],
+#     "matchStrings": [
+#       "appVersion:\\s*['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
+#     ],
+#     "depNameTemplate": "fluent-bit",          // change per repo
+#     "datasourceTemplate": "helm",
+#     "registryUrlTemplate": "https://fluent.github.io/helm-charts"
+#   },
+#   {
+#     "description": "Keep values.yaml image.tag in sync with appVersion",
+#     "fileMatch": ["(^|/)values\\.yaml$"],
+#     "matchStrings": [
+#       "#\\s*renovate:\\s*image=(?<depName>[^\\s]+)\\s*\\n\\s*tag:\\s*['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
+#     ],
+#     "datasourceTemplate": "docker"
+#   }
+# ]
+#
+# In values.yaml, annotate the image block like this:
+#
+#   image:
+#     repository: docker.io/fluent/fluent-bit
+#     # renovate: image=docker.io/fluent/fluent-bit
+#     tag: "3.3.2"
+#
+# Renovate will then raise a single PR that atomically updates:
+#   Chart.yaml  → dependencies[].version  (helmv3 manager)
+#   Chart.yaml  → appVersion              (regexManager)
+#   values.yaml → image.tag               (regexManager)
+# ══════════════════════════════════════════════════════════════════════════════
