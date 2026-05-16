@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aaron Mustafa — CEO & Founder, Kurdonia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Syne:wght@400;500;700;800&family=DM+Mono:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --ink: #0a0705;
+    --cream: #f5f0e8;
+    --sand: #d4c4a0;
+    --ember: #c8470a;
+    --gold: #b8972a;
+    --mist: #8a8070;
+    --deep: #1a1410;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--ink);
+    color: var(--cream);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* Custom Cursor */
+  .cursor {
+    position: fixed;
+    width: 10px; height: 10px;
+    background: var(--ember);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.1s ease;
+    mix-blend-mode: difference;
+  }
+  .cursor-ring {
+    position: fixed;
+    width: 36px; height: 36px;
+    border: 1px solid rgba(200,71,10,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    transition: transform 0.25s ease, width 0.3s, height 0.3s, border-color 0.3s;
+  }
+  .cursor-ring.hover { width: 60px; height: 60px; border-color: var(--gold); }
+
+  /* Noise Overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.6;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 50;
+    padding: 28px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    mix-blend-mode: normal;
+  }
+  nav::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(10,7,5,0.9), transparent);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--sand);
+    text-decoration: none;
+  }
+  .nav-links { display: flex; gap: 40px; list-style: none; }
+  .nav-links a {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--mist);
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  .nav-links a:hover { color: var(--cream); }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+  }
+
+  .hero-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 60px 80px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .hero-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    color: var(--ember);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.3s forwards;
+  }
+
+  .hero-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(4rem, 7vw, 7.5rem);
+    font-weight: 300;
+    line-height: 0.9;
+    letter-spacing: -0.02em;
+    color: var(--cream);
+    opacity: 0;
+    animation: fadeUp 0.9s 0.5s forwards;
+  }
+  .hero-name em {
+    font-style: italic;
+    color: var(--sand);
+    display: block;
+  }
+
+  .hero-role {
+    margin-top: 36px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.8s forwards;
+  }
+  .hero-role-line {
+    width: 48px;
+    height: 1px;
+    background: var(--ember);
+  }
+  .hero-role-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--mist);
+  }
+
+  .hero-right {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Geometric backdrop */
+  .hero-art {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .geo-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(212,196,160,0.08);
+  }
+  .geo-ring:nth-child(1) { width: 500px; height: 500px; animation: rotateSlow 40s linear infinite; }
+  .geo-ring:nth-child(2) { width: 380px; height: 380px; border-color: rgba(200,71,10,0.1); animation: rotateSlow 28s linear infinite reverse; }
+  .geo-ring:nth-child(3) { width: 260px; height: 260px; animation: rotateSlow 20s linear infinite; }
+  .geo-ring::before {
+    content: '';
+    position: absolute;
+    width: 6px; height: 6px;
+    background: var(--ember);
+    border-radius: 50%;
+    top: -3px; left: 50%; transform: translateX(-50%);
+  }
+
+  .hero-portrait-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-portrait-bg {
+    width: 360px;
+    height: 480px;
+    border-radius: 180px 180px 0 0;
+    background: linear-gradient(160deg, #2a1f14 0%, #1a1008 60%, #0d0805 100%);
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeIn 1.2s 1s forwards;
+    box-shadow: 0 0 120px rgba(200,71,10,0.12), inset 0 0 60px rgba(0,0,0,0.5);
+  }
+  .hero-portrait-bg::after {
+    content: 'AM';
+    position: absolute;
+    bottom: 40px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 9rem;
+    font-weight: 300;
+    color: rgba(212,196,160,0.08);
+    letter-spacing: -0.05em;
+    line-height: 1;
+  }
+  .hero-portrait-glow {
+    position: absolute;
+    bottom: -40px; left: 50%; transform: translateX(-50%);
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(200,71,10,0.25) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .hero-scroll {
+    position: absolute;
+    bottom: 40px; left: 60px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    opacity: 0;
+    animation: fadeUp 0.8s 1.2s forwards;
+  }
+  .scroll-bar {
+    width: 1px;
+    height: 48px;
+    background: linear-gradient(to bottom, var(--ember), transparent);
+    animation: scrollPulse 2s ease-in-out infinite;
+  }
+  .scroll-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--mist);
+    writing-mode: vertical-rl;
+    text-transform: uppercase;
+  }
+
+  /* DIVIDER */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 60px;
+    margin-bottom: 80px;
+  }
+  .divider-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--ember);
+    letter-spacing: 0.1em;
+  }
+  .divider-line { flex: 1; height: 1px; background: rgba(212,196,160,0.1); }
+  .divider-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--mist);
+  }
+
+  /* ABOUT */
+  .about {
+    padding: 120px 60px;
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 80px;
+    align-items: start;
+    position: relative;
+  }
+  .about::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(to bottom, transparent, rgba(200,71,10,0.2) 30%, rgba(200,71,10,0.2) 70%, transparent);
+  }
+  .about-tag {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(3rem, 5vw, 5.5rem);
+    font-weight: 300;
+    line-height: 1;
+    color: rgba(212,196,160,0.08);
+    letter-spacing: -0.03em;
+    margin-bottom: 40px;
+  }
+  .about-stat-grid { display: flex; flex-direction: column; gap: 32px; }
+  .about-stat {
+    border-top: 1px solid rgba(212,196,160,0.1);
+    padding-top: 20px;
+  }
+  .stat-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.8rem;
+    font-weight: 300;
+    color: var(--ember);
+    line-height: 1;
+  }
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--mist);
+    margin-top: 6px;
+  }
+  .about-right {}
+  .about-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 3vw, 3rem);
+    font-weight: 300;
+    line-height: 1.2;
+    color: var(--cream);
+    margin-bottom: 32px;
+  }
+  .about-heading em { font-style: italic; color: var(--sand); }
+  .about-body {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.9;
+    color: var(--mist);
+    max-width: 520px;
+  }
+  .about-body p + p { margin-top: 20px; }
+  .highlight { color: var(--cream); }
+
+  /* KURDONIA SECTION */
+  .kurdonia {
+    padding: 120px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kurdonia-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(200,71,10,0.04) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .kurdonia-inner {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+  .kurdonia-content {}
+  .kurdonia-kicker {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+  }
+  .kurdonia-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(3rem, 5vw, 5rem);
+    font-weight: 300;
+    line-height: 0.95;
+    color: var(--cream);
+    margin-bottom: 36px;
+    letter-spacing: -0.02em;
+  }
+  .kurdonia-title span {
+    display: block;
+    font-style: italic;
+    color: var(--sand);
+  }
+  .kurdonia-desc {
+    font-size: 0.9rem;
+    line-height: 1.9;
+    color: var(--mist);
+    max-width: 480px;
+    margin-bottom: 48px;
+  }
+  .kurdonia-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cream);
+    text-decoration: none;
+    border-bottom: 1px solid var(--ember);
+    padding-bottom: 4px;
+    transition: color 0.3s, gap 0.3s;
+  }
+  .kurdonia-link:hover { color: var(--ember); gap: 20px; }
+  .kurdonia-link-arrow { font-size: 1rem; }
+
+  .kurdonia-visual {
+    position: relative;
+    height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .k-card {
+    width: 260px;
+    padding: 36px;
+    background: rgba(212,196,160,0.03);
+    border: 1px solid rgba(212,196,160,0.08);
+    border-radius: 4px;
+    position: absolute;
+    transition: transform 0.4s ease;
+  }
+  .k-card:hover { transform: translateY(-8px); }
+  .k-card:nth-child(1) { transform: rotate(-4deg) translate(-40px, 20px); z-index: 1; }
+  .k-card:nth-child(1):hover { transform: rotate(-2deg) translate(-40px, 10px); }
+  .k-card:nth-child(2) { transform: rotate(3deg) translate(40px, -20px); z-index: 2; }
+  .k-card:nth-child(2):hover { transform: rotate(1.5deg) translate(40px, -28px); }
+  .k-card-icon { font-size: 1.8rem; margin-bottom: 16px; }
+  .k-card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ember);
+    margin-bottom: 10px;
+  }
+  .k-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: var(--cream);
+    line-height: 1.2;
+  }
+
+  /* VISION STRIP */
+  .vision-strip {
+    padding: 60px 0;
+    overflow: hidden;
+    border-top: 1px solid rgba(212,196,160,0.06);
+    border-bottom: 1px solid rgba(212,196,160,0.06);
+    position: relative;
+  }
+  .marquee-track {
+    display: flex;
+    gap: 0;
+    white-space: nowrap;
+    animation: marquee 20s linear infinite;
+  }
+  .marquee-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 32px;
+    padding: 0 32px;
+    flex-shrink: 0;
+  }
+  .marquee-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.2rem;
+    font-weight: 300;
+    font-style: italic;
+    color: rgba(212,196,160,0.15);
+    letter-spacing: 0.02em;
+  }
+  .marquee-dot { width: 5px; height: 5px; background: var(--ember); border-radius: 50%; flex-shrink: 0; }
+
+  /* EXPERTISE */
+  .expertise {
+    padding: 120px 60px;
+  }
+  .expertise-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(212,196,160,0.06);
+    margin-top: 80px;
+  }
+  .expertise-item {
+    background: var(--ink);
+    padding: 48px 40px;
+    position: relative;
+    transition: background 0.4s;
+    overflow: hidden;
+  }
+  .expertise-item::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 2px;
+    background: var(--ember);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+  }
+  .expertise-item:hover { background: rgba(200,71,10,0.04); }
+  .expertise-item:hover::before { transform: scaleX(1); }
+  .expertise-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    color: var(--ember);
+    margin-bottom: 28px;
+  }
+  .expertise-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.8rem;
+    font-weight: 300;
+    color: var(--cream);
+    line-height: 1.1;
+    margin-bottom: 20px;
+  }
+  .expertise-desc {
+    font-size: 0.8rem;
+    line-height: 1.8;
+    color: var(--mist);
+  }
+
+  /* CONTACT */
+  .contact {
+    padding: 140px 60px 100px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: start;
+    position: relative;
+  }
+  .contact-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(3.5rem, 6vw, 6rem);
+    font-weight: 300;
+    line-height: 0.95;
+    color: var(--cream);
+    letter-spacing: -0.03em;
+  }
+  .contact-heading em { display: block; font-style: italic; color: var(--sand); }
+  .contact-sub {
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: var(--mist);
+    margin-top: 32px;
+    max-width: 400px;
+  }
+  .contact-links { display: flex; flex-direction: column; gap: 0; }
+  .contact-link-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 0;
+    border-bottom: 1px solid rgba(212,196,160,0.08);
+    text-decoration: none;
+    group: true;
+    transition: padding-left 0.3s;
+    color: inherit;
+  }
+  .contact-link-item:hover { padding-left: 12px; }
+  .contact-link-left {}
+  .contact-link-platform {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--mist);
+    margin-bottom: 6px;
+  }
+  .contact-link-handle {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-weight: 300;
+    color: var(--cream);
+  }
+  .contact-arrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--ember);
+    transition: transform 0.3s;
+  }
+  .contact-link-item:hover .contact-arrow { transform: translateX(6px); }
+
+  /* FOOTER */
+  footer {
+    padding: 40px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(212,196,160,0.06);
+  }
+  .footer-copy {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: rgba(138,128,112,0.4);
+    text-transform: uppercase;
+  }
+  .footer-mark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: rgba(212,196,160,0.2);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes rotateSlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes scrollPulse {
+    0%, 100% { opacity: 0.4; transform: scaleY(1); }
+    50% { opacity: 1; transform: scaleY(1.1); }
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* Scroll reveal */
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.4s; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    nav { padding: 24px 30px; }
+    .nav-links { gap: 24px; }
+    .hero { grid-template-columns: 1fr; }
+    .hero-left { padding: 160px 30px 60px; }
+    .hero-right { display: none; }
+    .about { grid-template-columns: 1fr; padding: 80px 30px; gap: 48px; }
+    .kurdonia { padding: 80px 30px; }
+    .kurdonia-inner { grid-template-columns: 1fr; }
+    .kurdonia-visual { display: none; }
+    .expertise { padding: 80px 30px; }
+    .expertise-grid { grid-template-columns: 1fr; }
+    .contact { grid-template-columns: 1fr; padding: 80px 30px; }
+    footer { padding: 30px; flex-direction: column; gap: 12px; text-align: center; }
+    .section-divider { padding: 0 30px; }
+    .hero-scroll { left: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">Aaron Mustafa</a>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#kurdonia">Kurdonia</a></li>
+    <li><a href="#expertise">Expertise</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow">CEO &amp; Founder · Kurdonia</p>
+    <h1 class="hero-name">
+      Aaron<em>Mustafa</em>
+    </h1>
+    <div class="hero-role">
+      <div class="hero-role-line"></div>
+      <span class="hero-role-text">Visionary · Builder · Leader</span>
+    </div>
+    <div class="hero-scroll">
+      <div class="scroll-bar"></div>
+      <span class="scroll-label">Scroll</span>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="hero-art">
+      <div class="geo-ring"></div>
+      <div class="geo-ring"></div>
+      <div class="geo-ring"></div>
+    </div>
+    <div class="hero-portrait-wrap">
+      <div class="hero-portrait-bg">
+        <div class="hero-portrait-glow"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="about" id="about">
+  <div class="about-left">
+    <div class="about-tag reveal">About</div>
+    <div class="about-stat-grid">
+      <div class="about-stat reveal reveal-delay-1">
+        <div class="stat-num">CEO</div>
+        <div class="stat-label">Title &amp; Role</div>
+      </div>
+      <div class="about-stat reveal reveal-delay-2">
+        <div class="stat-num">∞</div>
+        <div class="stat-label">Vision Scale</div>
+      </div>
+      <div class="about-stat reveal reveal-delay-3">
+        <div class="stat-num">01</div>
+        <div class="stat-label">Kurdonia</div>
+      </div>
+    </div>
+  </div>
+  <div class="about-right">
+    <h2 class="about-heading reveal">
+      Building what <em>matters</em> — one bold idea at a time.
+    </h2>
+    <div class="about-body reveal reveal-delay-1">
+      <p>
+        Aaron Mustafa is the <span class="highlight">CEO and Founder of Kurdonia</span> — a visionary leader driving impact through strategic thinking, relentless execution, and a deep commitment to building something that endures.
+      </p>
+      <p>
+        With a founder's mentality and an executive's discipline, Aaron operates at the intersection of innovation and leadership. He builds companies, cultivates culture, and turns ambitious ideas into transformative realities.
+      </p>
+      <p>
+        At the helm of Kurdonia, Aaron sets the direction, assembles exceptional talent, and champions the mission with unwavering clarity and conviction.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- KURDONIA -->
+<section class="kurdonia" id="kurdonia">
+  <div class="kurdonia-bg"></div>
+
+  <div class="section-divider reveal">
+    <span class="divider-num">02</span>
+    <div class="divider-line"></div>
+    <span class="divider-label">The Company</span>
+  </div>
+
+  <div class="kurdonia-inner">
+    <div class="kurdonia-content">
+      <p class="kurdonia-kicker reveal">Founded & Led by Aaron Mustafa</p>
+      <h2 class="kurdonia-title reveal">
+        Kurdonia
+        <span>Redefining the possible.</span>
+      </h2>
+      <p class="kurdonia-desc reveal reveal-delay-1">
+        Kurdonia is Aaron's flagship venture — a company built on bold conviction and a clear vision for the future. Under his leadership, Kurdonia operates with a culture of excellence, moving fast without compromising depth or quality.
+      </p>
+      <a href="#contact" class="kurdonia-link reveal reveal-delay-2">
+        Learn more about Kurdonia <span class="kurdonia-link-arrow">→</span>
+      </a>
+    </div>
+    <div class="kurdonia-visual">
+      <div class="k-card">
+        <div class="k-card-icon">🏛</div>
+        <div class="k-card-label">Mission</div>
+        <div class="k-card-title">Build with purpose &amp; precision</div>
+      </div>
+      <div class="k-card">
+        <div class="k-card-icon">⚡</div>
+        <div class="k-card-label">Approach</div>
+        <div class="k-card-title">Move fast, think deep, lead bold</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="vision-strip">
+  <div class="marquee-track">
+    <div class="marquee-item"><span class="marquee-text">Leadership</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Innovation</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Strategy</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Kurdonia</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Vision</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Execution</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Growth</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Culture</span><span class="marquee-dot"></span></div>
+    <!-- Duplicate for seamless loop -->
+    <div class="marquee-item"><span class="marquee-text">Leadership</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Innovation</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Strategy</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Kurdonia</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Vision</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Execution</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Growth</span><span class="marquee-dot"></span></div>
+    <div class="marquee-item"><span class="marquee-text">Culture</span><span class="marquee-dot"></span></div>
+  </div>
+</div>
+
+<!-- EXPERTISE -->
+<section class="expertise" id="expertise">
+  <div class="section-divider reveal">
+    <span class="divider-num">03</span>
+    <div class="divider-line"></div>
+    <span class="divider-label">Areas of Expertise</span>
+  </div>
+
+  <div class="expertise-grid">
+    <div class="expertise-item reveal">
+      <div class="expertise-num">01</div>
+      <div class="expertise-name">Company<br>Building</div>
+      <div class="expertise-desc">From zero to scale — founding, structuring, and growing companies with intention and speed.</div>
+    </div>
+    <div class="expertise-item reveal reveal-delay-1">
+      <div class="expertise-num">02</div>
+      <div class="expertise-name">Strategic<br>Leadership</div>
+      <div class="expertise-desc">Setting vision, aligning teams, and making high-stakes decisions with clarity and conviction.</div>
+    </div>
+    <div class="expertise-item reveal reveal-delay-2">
+      <div class="expertise-num">03</div>
+      <div class="expertise-name">Growth &amp;<br>Execution</div>
+      <div class="expertise-desc">Turning bold ideas into measurable outcomes through disciplined execution and relentless focus.</div>
+    </div>
+    <div class="expertise-item reveal reveal-delay-1">
+      <div class="expertise-num">04</div>
+      <div class="expertise-name">Culture &amp;<br>Talent</div>
+      <div class="expertise-desc">Building exceptional teams and cultures where great people do the best work of their lives.</div>
+    </div>
+    <div class="expertise-item reveal reveal-delay-2">
+      <div class="expertise-num">05</div>
+      <div class="expertise-name">Vision &amp;<br>Innovation</div>
+      <div class="expertise-desc">Seeing what others miss and building the future before the rest of the world catches up.</div>
+    </div>
+    <div class="expertise-item reveal reveal-delay-3">
+      <div class="expertise-num">06</div>
+      <div class="expertise-name">Brand &amp;<br>Narrative</div>
+      <div class="expertise-desc">Crafting compelling stories and identities that make companies and ideas impossible to ignore.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section class="contact" id="contact">
+  <div>
+    <div class="section-divider reveal" style="padding: 0; margin-bottom: 48px;">
+      <span class="divider-num">04</span>
+      <div class="divider-line"></div>
+      <span class="divider-label">Get in Touch</span>
+    </div>
+    <h2 class="contact-heading reveal">
+      Let's build<em>something great.</em>
+    </h2>
+    <p class="contact-sub reveal reveal-delay-1">
+      Whether you're looking to collaborate, invest, or simply connect — Aaron is always open to conversations that matter.
+    </p>
+  </div>
+  <div class="contact-links reveal reveal-delay-2">
+    <a href="mailto:aaron@kurdonia.com" class="contact-link-item">
+      <div class="contact-link-left">
+        <div class="contact-link-platform">Email</div>
+        <div class="contact-link-handle">aaron@kurdonia.com</div>
+      </div>
+      <span class="contact-arrow">→</span>
+    </a>
+    <a href="https://linkedin.com" target="_blank" class="contact-link-item">
+      <div class="contact-link-left">
+        <div class="contact-link-platform">LinkedIn</div>
+        <div class="contact-link-handle">Aaron Mustafa</div>
+      </div>
+      <span class="contact-arrow">→</span>
+    </a>
+    <a href="https://twitter.com" target="_blank" class="contact-link-item">
+      <div class="contact-link-left">
+        <div class="contact-link-platform">Twitter / X</div>
+        <div class="contact-link-handle">@aaronmustafa</div>
+      </div>
+      <span class="contact-arrow">→</span>
+    </a>
+    <a href="https://kurdonia.com" target="_blank" class="contact-link-item">
+      <div class="contact-link-left">
+        <div class="contact-link-platform">Company</div>
+        <div class="contact-link-handle">kurdonia.com</div>
+      </div>
+      <span class="contact-arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span class="footer-copy">© 2026 Aaron Mustafa — All Rights Reserved</span>
+  <span class="footer-mark">Kurdonia</span>
+</footer>
+
+<script>
+  // Custom cursor
+  const cursor = document.getElementById('cursor');
+  const ring = document.getElementById('cursorRing');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    cursor.style.left = mx - 5 + 'px';
+    cursor.style.top = my - 5 + 'px';
+  });
+  function animateRing() {
+    rx += (mx - rx - 18) * 0.14;
+    ry += (my - ry - 18) * 0.14;
+    ring.style.left = rx + 'px';
+    ring.style.top = ry + 'px';
+    requestAnimationFrame(animateRing);
+  }
+  animateRing();
+  document.querySelectorAll('a, button, .expertise-item, .k-card').forEach(el => {
+    el.addEventListener('mouseenter', () => ring.classList.add('hover'));
+    el.addEventListener('mouseleave', () => ring.classList.remove('hover'));
+  });
+
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => observer.observe(el));
+
+  // Parallax on hero text
+  document.addEventListener('mousemove', e => {
+    const x = (e.clientX / window.innerWidth - 0.5) * 12;
+    const y = (e.clientY / window.innerHeight - 0.5) * 8;
+    document.querySelector('.hero-portrait-bg').style.transform = `translate(${x}px, ${y}px)`;
+    document.querySelectorAll('.geo-ring').forEach((r, i) => {
+      const factor = (i + 1) * 0.4;
+      r.style.transform += ` translate(${x * factor}px, ${y * factor}px)`;
+    });
+  });
+
+  // Nav background on scroll
+  const nav = document.querySelector('nav');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 60) {
+      nav.style.background = 'rgba(10,7,5,0.95)';
+      nav.style.backdropFilter = 'blur(12px)';
+    } else {
+      nav.style.background = '';
+      nav.style.backdropFilter = '';
+    }
+  });
+</script>
+</body>
+</html>
